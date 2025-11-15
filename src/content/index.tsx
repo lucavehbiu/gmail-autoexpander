@@ -29,8 +29,12 @@ const SELECTORS = {
     'div.a3s', // Gmail message body class
   ],
 
-  // Main content area
-  MAIN_CONTENT: 'div[role="main"]',
+  // Main content area (multiple selectors for different Gmail views)
+  MAIN_CONTENT: [
+    'div[role="main"]',     // Standard Gmail view
+    '.nH',                  // Gmail container
+    'body',                 // Fallback: entire body
+  ],
 };
 
 // Track expanded messages to avoid re-expanding
@@ -56,6 +60,9 @@ async function init() {
     return;
   }
 
+  // Wait a bit for Gmail to fully load
+  await new Promise(resolve => setTimeout(resolve, 1000));
+
   // Initial scan
   scanForClippedMessages();
 
@@ -69,9 +76,18 @@ async function init() {
 function scanForClippedMessages(): void {
   logger.log('Scanning for clipped messages...');
 
-  const mainContent = document.querySelector(SELECTORS.MAIN_CONTENT);
+  // Try each selector until we find content
+  let mainContent: Element | null = null;
+  for (const selector of SELECTORS.MAIN_CONTENT) {
+    mainContent = document.querySelector(selector);
+    if (mainContent) {
+      logger.log(`Found content area using selector: ${selector}`);
+      break;
+    }
+  }
+
   if (!mainContent) {
-    logger.warn('Main content area not found');
+    logger.warn('Main content area not found with any selector');
     return;
   }
 
@@ -157,46 +173,117 @@ async function expandMessage(
     // Mark as attempted immediately to prevent infinite loops
     expandedMessages.add(messageId);
 
-    // Get the URL and navigate to it (don't open new tab)
+    // Get the URL and fetch the full content
     if (button instanceof HTMLAnchorElement && button.href) {
-      logger.log('Navigating to full email view...');
-      // Navigate to the full email view in the same tab
-      window.location.href = button.href;
-      rateLimiter.recordExpansion();
-      await storage.incrementExpansionCount();
-      logger.success('Navigated to full email view');
-      return; // Exit immediately after navigation
+      // Check if we're already on the full email view page
+      const currentUrl = window.location.href;
+      logger.log(`Current URL: ${currentUrl}`);
+      logger.log(`Expand button URL: ${button.href}`);
+
+      const isFullView = currentUrl.includes('view=lg') ||
+                        currentUrl.includes('view=om') ||
+                        currentUrl.includes('permmsgid=');
+
+      logger.log(`Is full view page: ${isFullView}`);
+
+      if (isFullView) {
+        // We're already on the full view page
+        logger.log('Already on full email view, removing clipped indicator...');
+
+        // Find and remove the clipped indicator
+        const clippedDiv = container.querySelector('.iX');
+        if (clippedDiv) {
+          clippedDiv.remove();
+          logger.success('Removed "[Message clipped]" indicator - full content is already visible!');
+        } else {
+          logger.log('No clipped indicator found - content may already be expanded');
+        }
+
+        await storage.incrementExpansionCount();
+        markAsExpanded(container);
+        return;
+      }
+
+      // We're in inbox view - fetch and inject inline
+      logger.log('Fetching full email content for inline injection...');
+      const response = await fetch(button.href);
+      const html = await response.text();
+
+      // Parse the HTML
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+
+      // Find the email body in the fetched page - try multiple selectors
+      // The view=lg page uses old HTML table structure with .maincontent class
+      const fullEmailBody = doc.querySelector('.maincontent') || // view=lg page structure
+                           doc.querySelector('.a3s.aiL') ||
+                           doc.querySelector('.a3s') ||
+                           doc.querySelector('.ii.gt') || // Gmail message body container
+                           doc.querySelector('[role="article"]') ||
+                           doc.querySelector('.message_body');
+
+      logger.log(`Tried selectors - found element: ${!!fullEmailBody}`);
+
+      if (fullEmailBody) {
+        logger.log('Found full email content, injecting inline...');
+        logger.log(`Content length: ${fullEmailBody.innerHTML.length} chars`);
+
+        // Find the container where clipped content is
+        const clippedContainer = container.querySelector('.a3s.aiL') ||
+                                container.querySelector('.a3s');
+
+        if (clippedContainer) {
+          // Replace clipped content with full content
+          clippedContainer.innerHTML = fullEmailBody.innerHTML;
+
+          // Add visual indicator and styling
+          const wrapper = document.createElement('div');
+          wrapper.style.cssText = `
+            background: #f8f9fa;
+            padding: 16px;
+            border-radius: 8px;
+            margin-top: 8px;
+            border-left: 4px solid #1a73e8;
+          `;
+
+          // Wrap the content
+          const parent = clippedContainer.parentElement;
+          if (parent) {
+            parent.insertBefore(wrapper, clippedContainer);
+            wrapper.appendChild(clippedContainer);
+          }
+
+          // Remove the "[Message clipped]" text and button
+          const clippedDiv = container.querySelector('.iX');
+          if (clippedDiv) {
+            clippedDiv.remove();
+          }
+
+          logger.success('Message expanded inline successfully!');
+          await storage.incrementExpansionCount();
+          markAsExpanded(container);
+          return;
+        }
+      }
+
+      logger.warn('Could not extract email content from fetched page');
+      logger.log('Available body classes:', Array.from(doc.querySelectorAll('div[class*="a"]')).slice(0, 5).map(el => el.className));
+      logger.log('HTML structure preview:', doc.body?.innerHTML.substring(0, 500));
+
+      // Don't navigate - just remove the clipped indicator if present
+      const clippedDiv = container.querySelector('.iX');
+      if (clippedDiv) {
+        clippedDiv.remove();
+      }
+      return;
     }
 
     // Fallback: click if it's not a link
     button.click();
     rateLimiter.recordExpansion();
 
-    // Wait for Gmail to load content
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    // Check if expansion succeeded by looking for clipped text
-    const stillClipped = isMessageClipped(container);
-    const expanded = !stillClipped;
-
-    if (expanded) {
-      logger.success('Message expanded successfully');
-      await storage.incrementExpansionCount();
-      markAsExpanded(container);
-    } else {
-      // Retry if we haven't hit max retries
-      if (retryCount < RETRY_CONFIG.maxRetries) {
-        logger.warn(`Expansion may have failed, retrying... (${retryCount + 1}/${RETRY_CONFIG.maxRetries})`);
-        // Remove from set so we can retry
-        expandedMessages.delete(messageId);
-        setTimeout(() => {
-          expandMessage(button, container, retryCount + 1);
-        }, RETRY_CONFIG.retryDelay);
-      } else {
-        logger.error('Max retries reached, expansion failed');
-        // Keep in expandedMessages to prevent infinite retries
-      }
-    }
+    logger.error('No link found to expand');
+    expandedMessages.delete(messageId); // Allow retry
   } catch (error) {
     logger.error('Error during expansion:', error);
 
