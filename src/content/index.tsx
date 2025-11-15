@@ -233,24 +233,45 @@ async function expandMessage(
                                 container.querySelector('.a3s');
 
         if (clippedContainer) {
-          // Replace clipped content with full content
-          clippedContainer.innerHTML = fullEmailBody.innerHTML;
+          // Get the current truncated text content (normalized)
+          const currentText = clippedContainer.textContent?.trim() || '';
+          const fullText = fullEmailBody.textContent?.trim() || '';
 
-          // Add visual indicator and styling
-          const wrapper = document.createElement('div');
-          wrapper.style.cssText = `
-            background: #f8f9fa;
-            padding: 16px;
-            border-radius: 8px;
-            margin-top: 8px;
-            border-left: 4px solid #1a73e8;
-          `;
+          logger.log(`Current content length: ${currentText.length} chars`);
+          logger.log(`Full content length: ${fullText.length} chars`);
 
-          // Wrap the content
-          const parent = clippedContainer.parentElement;
-          if (parent) {
-            parent.insertBefore(wrapper, clippedContainer);
-            wrapper.appendChild(clippedContainer);
+          // Check if current content is actually truncated
+          if (fullText.includes(currentText) && fullText.length > currentText.length) {
+            // Create a container for the extra content
+            const extraContentDiv = document.createElement('div');
+            extraContentDiv.style.cssText = `
+              background: #f5f5f5;
+              padding: 16px;
+              border-radius: 8px;
+              margin-top: 12px;
+              border-left: 4px solid #1a73e8;
+              color: red;
+            `;
+            extraContentDiv.setAttribute('data-gmail-expander-content', 'true');
+
+            // Set the full content HTML into the extra div
+            // We'll use the full HTML from the fetched page
+            extraContentDiv.innerHTML = fullEmailBody.innerHTML;
+
+            // Insert the extra content after the clipped container
+            const parent = clippedContainer.parentElement;
+            if (parent) {
+              const insertPoint = clippedContainer.nextSibling;
+              if (insertPoint) {
+                parent.insertBefore(extraContentDiv, insertPoint);
+              } else {
+                parent.appendChild(extraContentDiv);
+              }
+            }
+          } else {
+            // Fallback: just replace if we can't find the truncation point
+            logger.log('Could not find truncation point, replacing all content');
+            clippedContainer.innerHTML = fullEmailBody.innerHTML;
           }
 
           // Remove the "[Message clipped]" text and button
