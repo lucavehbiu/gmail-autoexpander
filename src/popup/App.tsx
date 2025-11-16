@@ -4,7 +4,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { storage } from '../utils/storage';
-import { ExtensionSettings } from '../types';
+import { ExtensionSettings, FREE_DAILY_LIMIT } from '../types';
 
 const App: React.FC = () => {
   const [settings, setSettings] = useState<ExtensionSettings | null>(null);
@@ -63,6 +63,7 @@ const App: React.FC = () => {
       {/* Header */}
       <header className="popup-header">
         <div className="header-content">
+          <img src="/icons/icon-48.png" alt="Gmail Unlimited" style={{width: '24px', height: '24px', marginRight: '8px'}} />
           <h1>Gmail Unlimited</h1>
           <span className="version">v1.0.0</span>
         </div>
@@ -129,13 +130,28 @@ const App: React.FC = () => {
         </div>
       </div>
 
+      {/* Daily Usage */}
+      <div className="usage-section">
+        <h3>Daily Usage (Free)</h3>
+        <div className="usage-bar">
+          <div className="usage-fill" style={{ width: `${(settings.dailyExpandCount / FREE_DAILY_LIMIT) * 100}%` }}></div>
+        </div>
+        <p className="usage-text">{settings.dailyExpandCount} / {FREE_DAILY_LIMIT} expansions today</p>
+        {settings.dailyExpandCount >= FREE_DAILY_LIMIT && (
+          <p className="usage-limit">Daily limit reached! <a href="https://chrome.google.com/webstore/YOUR_PRO_ID" target="_blank" rel="noopener noreferrer">Upgrade to Pro</a> for unlimited.</p>
+        )}
+        <a href="https://chrome.google.com/webstore/YOUR_PRO_ID" target="_blank" rel="noopener noreferrer" className="btn-upgrade">
+          Upgrade to Pro - $2.99
+        </a>
+      </div>
+
       {/* Statistics */}
       <div className="stats-section">
         <h3>Statistics</h3>
         <div className="stats-grid">
           <div className="stat-card">
             <div className="stat-value">{settings.expandCount}</div>
-            <div className="stat-label">Messages Expanded</div>
+            <div className="stat-label">Total Expanded</div>
           </div>
           <div className="stat-card">
             <div className="stat-value">

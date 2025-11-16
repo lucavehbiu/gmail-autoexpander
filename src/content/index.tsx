@@ -155,6 +155,14 @@ async function expandMessage(
     return;
   }
 
+  // Check free tier limit
+  const canExpand = await storage.canExpand();
+  if (!canExpand) {
+    logger.warn('Daily limit reached (5/day). Upgrade to Pro for unlimited!');
+    showUpgradePrompt(container);
+    return;
+  }
+
   // Check rate limit
   if (!rateLimiter.canExpand()) {
     const status = rateLimiter.getStatus();
@@ -406,6 +414,72 @@ function markAsExpanded(container: HTMLElement): void {
 
   if (header && !container.querySelector('[data-gmail-expander]')) {
     header.appendChild(indicator);
+  }
+}
+
+/**
+ * Show upgrade prompt when daily limit is reached
+ */
+function showUpgradePrompt(container: HTMLElement): void {
+  if (container.querySelector('[data-gmail-pro-upgrade]')) {
+    return;
+  }
+
+  const upgradePrompt = document.createElement('div');
+  upgradePrompt.style.cssText = `
+    all: initial !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%) !important;
+    border-left: 4px solid #ff9800 !important;
+    padding: 16px !important;
+    margin: 12px 0 !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif !important;
+    font-size: 14px !important;
+    color: #e65100 !important;
+    border-radius: 8px !important;
+    box-sizing: border-box !important;
+  `;
+  upgradePrompt.setAttribute('data-gmail-pro-upgrade', 'true');
+
+  const message = document.createElement('div');
+  message.style.cssText = 'all: initial !important; font-weight: 600 !important; color: #e65100 !important; font-size: 15px !important;';
+  message.textContent = '⚠️ Daily Limit Reached (5/5)';
+
+  const description = document.createElement('div');
+  description.style.cssText = 'all: initial !important; font-size: 13px !important; color: #f57c00 !important; line-height: 1.5 !important;';
+  description.textContent = 'Get Gmail Unlimited Pro for unlimited auto-expansions at just $2.99 (one-time payment)';
+
+  const upgradeButton = document.createElement('a');
+  upgradeButton.href = 'https://chrome.google.com/webstore/detail/gmail-unlimited-pro/YOUR_PRO_ID';
+  upgradeButton.target = '_blank';
+  upgradeButton.style.cssText = `
+    all: initial !important;
+    display: inline-block !important;
+    background: #ff9800 !important;
+    color: white !important;
+    text-decoration: none !important;
+    padding: 12px 24px !important;
+    border-radius: 6px !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: background 0.2s !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif !important;
+    text-align: center !important;
+  `;
+  upgradeButton.textContent = 'Upgrade to Pro - $2.99';
+
+  upgradePrompt.appendChild(message);
+  upgradePrompt.appendChild(description);
+  upgradePrompt.appendChild(upgradeButton);
+
+  const clippedDiv = container.querySelector('.iX');
+  if (clippedDiv && clippedDiv.parentElement) {
+    clippedDiv.parentElement.insertBefore(upgradePrompt, clippedDiv.nextSibling);
+  } else {
+    container.insertBefore(upgradePrompt, container.firstChild);
   }
 }
 

@@ -8,6 +8,9 @@ export interface ExtensionSettings {
   errorReportingEnabled: boolean;
   expandCount: number;
   lastExpanded: string | null;
+  // Free version tracking
+  dailyExpandCount: number;
+  lastResetDate: string;
 }
 
 export interface ExpansionStats {
@@ -36,4 +39,8 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   errorReportingEnabled: false,
   expandCount: 0,
   lastExpanded: null,
+  dailyExpandCount: 0,
+  lastResetDate: new Date().toISOString().split('T')[0],
 };
+
+export const FREE_DAILY_LIMIT = 5;
