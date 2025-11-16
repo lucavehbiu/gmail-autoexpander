@@ -1,11 +1,11 @@
 # GMAIL AUTO-EXPANDER CHROME EXTENSION
 ## Complete Product Specification & Technical Brief
 
-**Project Name:** Gmail Unlimited (or "GmailExpand Pro")  
-**Version:** 1.0  
-**Launch Target:** November 17-18, 2025  
-**Price:** $0.99 one-time purchase  
-**Developer Platform:** React + TypeScript (or vanilla JS for speed)  
+**Project Name:** Gmail Unlimited (or "GmailExpand Pro")
+**Version:** 1.0
+**Launch Target:** November 17-18, 2025
+**Price:** $0.99 one-time purchase
+**Developer Platform:** React + TypeScript (or vanilla JS for speed)
 **Build Time Estimate:** 2-3 days
 
 ---
@@ -44,7 +44,7 @@ DETECTION: Look for:
   - Class/element with "View entire message" button
   - aria-label or data-attributes related to clipping
 
-ACTION: 
+ACTION:
   1. Find the expand button (usually a <a> or <button>)
   2. Simulate click OR fetch the full message via iframe loading
   3. Wait 500-1000ms for Gmail to inject content
@@ -75,7 +75,7 @@ ERROR HANDLING:
 ```
 LOCATION: Gmail email header (next to existing action buttons)
 ICON: Simple 📖 or ⬆️ icon (or expand arrow)
-ACTION ON CLICK: 
+ACTION ON CLICK:
   - Trigger manual expansion
   - Change icon to show "Expanded ✓"
   - Persist state in local storage per email ID
@@ -197,29 +197,29 @@ function findClippedMessages() {
     "[data-message-clipped='true']",   // Gmail data attribute
     "*:contains('[Message clipped]')", // Text search (Gmail uses this)
   ];
-  
+
   let clippedCount = 0;
-  
+
   // Scan page for clipped indicators
   document.querySelectorAll("div[role='main']").forEach(section => {
     const text = section.innerText;
-    
+
     // Check if text contains clipping indicator
-    if (text.includes("[Message clipped]") || 
+    if (text.includes("[Message clipped]") ||
         text.includes("View entire message") ||
         text.includes("Show trimmed content")) {
-      
+
       clippedCount++;
       const expandButton = section.querySelector("a[href*='&view=full']") ||
                           section.querySelector("button[aria-label*='entire']") ||
                           section.querySelector("a:contains('View entire message')");
-      
+
       if (expandButton) {
         expandMessage(expandButton, section);
       }
     }
   });
-  
+
   logDebug(`Found ${clippedCount} clipped messages`);
 }
 
@@ -227,19 +227,19 @@ function findClippedMessages() {
 function expandMessage(button, emailContainer) {
   chrome.storage.sync.get('autoExpandEnabled', (data) => {
     if (data.autoExpandEnabled === false) return; // User disabled
-    
+
     logDebug("Attempting to expand message...");
-    
+
     // Store current content size
     const originalHeight = emailContainer.scrollHeight;
-    
+
     // Click the expand button
     button.click();
-    
+
     // Wait for content to load (Gmail injects via iframe)
     setTimeout(() => {
       const newHeight = emailContainer.scrollHeight;
-      
+
       if (newHeight > originalHeight) {
         logDebug("✓ Message expanded successfully");
         updateUI("expanded", emailContainer);
@@ -298,29 +298,29 @@ function updateUI(status, element) {
   "name": "Gmail Unlimited - Auto Expander",
   "version": "1.0.0",
   "description": "Automatically expand clipped Gmail messages. Never click 'View entire message' again.",
-  
+
   "permissions": [
     "storage",
     "scripting"
   ],
-  
+
   "host_permissions": [
     "https://mail.google.com/*",
     "https://gmail.google.com/*"
   ],
-  
+
   "icons": {
     "16": "icons/icon-16.png",
     "48": "icons/icon-48.png",
     "128": "icons/icon-128.png"
   },
-  
+
   "action": {
     "default_title": "Gmail Unlimited Settings",
     "default_popup": "popup.html",
     "default_icon": "icons/icon-48.png"
   },
-  
+
   "content_scripts": [
     {
       "matches": [
@@ -331,7 +331,7 @@ function updateUI(status, element) {
       "run_at": "document_end"
     }
   ],
-  
+
   "background": {
     "service_worker": "src/background.js"
   }
@@ -351,35 +351,35 @@ function updateUI(status, element) {
 <body>
   <div class="popup-container">
     <h1>Gmail Unlimited</h1>
-    
+
     <div class="setting">
       <label>
         <input type="checkbox" id="autoExpandToggle" checked>
         <span>Auto-expand clipped messages</span>
       </label>
     </div>
-    
+
     <div class="setting">
       <label>
         <input type="checkbox" id="debugToggle">
         <span>Show debug messages</span>
       </label>
     </div>
-    
+
     <div class="info-box">
       <p><strong>📊 Stats:</strong></p>
       <p>Messages expanded: <span id="expandCount">0</span></p>
       <p>Last expanded: <span id="lastExpanded">Never</span></p>
     </div>
-    
+
     <button id="resetBtn" class="btn-secondary">Reset Settings</button>
-    
+
     <div class="footer">
       <p>Version 1.0 | Made with ❤️</p>
       <a href="https://your-support-page.com">Support</a>
     </div>
   </div>
-  
+
   <script src="src/popup.js"></script>
 </body>
 </html>

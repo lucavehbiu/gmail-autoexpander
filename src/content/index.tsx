@@ -240,37 +240,83 @@ async function expandMessage(
           logger.log(`Current content length: ${currentText.length} chars`);
           logger.log(`Full content length: ${fullText.length} chars`);
 
+          // Create banner to indicate content was expanded
+          const createBanner = () => {
+            const banner = document.createElement('div');
+            banner.style.cssText = `
+              all: initial !important;
+              display: flex !important;
+              align-items: center !important;
+              gap: 8px !important;
+              background: #e8f5e9 !important;
+              border-left: 4px solid #4caf50 !important;
+              padding: 8px 12px !important;
+              margin: 12px 0 !important;
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif !important;
+              font-size: 12px !important;
+              color: #2e7d32 !important;
+              border-radius: 4px !important;
+              box-sizing: border-box !important;
+            `;
+            banner.setAttribute('data-gmail-expander-banner', 'true');
+
+            const icon = document.createElement('span');
+            icon.style.cssText = 'all: initial !important; font-size: 14px !important; line-height: 1 !important;';
+            icon.textContent = '✓';
+
+            const text = document.createElement('span');
+            text.style.cssText = 'all: initial !important; font-weight: 500 !important; color: #2e7d32 !important; font-size: 12px !important;';
+            text.textContent = 'Full message expanded automatically';
+
+            banner.appendChild(icon);
+            banner.appendChild(text);
+            return banner;
+          };
+
           // Check if current content is actually truncated
           if (fullText.includes(currentText) && fullText.length > currentText.length) {
             // Create a container for the extra content
             const extraContentDiv = document.createElement('div');
             extraContentDiv.style.cssText = `
-              background: #f5f5f5;
+              background: #f8f9fa;
               padding: 16px;
               border-radius: 8px;
               margin-top: 12px;
               border-left: 4px solid #1a73e8;
-              color: red;
             `;
             extraContentDiv.setAttribute('data-gmail-expander-content', 'true');
 
             // Set the full content HTML into the extra div
-            // We'll use the full HTML from the fetched page
             extraContentDiv.innerHTML = fullEmailBody.innerHTML;
 
-            // Insert the extra content after the clipped container
+            // Insert banner before extra content
+            const banner = createBanner();
+
+            // Insert the banner and extra content after the clipped container
             const parent = clippedContainer.parentElement;
             if (parent) {
               const insertPoint = clippedContainer.nextSibling;
               if (insertPoint) {
+                parent.insertBefore(banner, insertPoint);
                 parent.insertBefore(extraContentDiv, insertPoint);
               } else {
+                parent.appendChild(banner);
                 parent.appendChild(extraContentDiv);
               }
             }
           } else {
             // Fallback: just replace if we can't find the truncation point
             logger.log('Could not find truncation point, replacing all content');
+
+            // Insert banner before replacing content
+            const banner = createBanner();
+            const parent = clippedContainer.parentElement;
+
+            if (parent) {
+              parent.insertBefore(banner, clippedContainer);
+            }
+
+            // Replace content
             clippedContainer.innerHTML = fullEmailBody.innerHTML;
           }
 
