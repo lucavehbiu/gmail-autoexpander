@@ -102,7 +102,21 @@ export const storage = {
   async resetSettings(): Promise<void> {
     try {
       await chrome.storage.sync.clear();
-      await chrome.storage.sync.set(DEFAULT_SETTINGS);
+      await chrome.storage.local.clear();
+
+      // Set defaults back
+      await chrome.storage.sync.set({
+        autoExpandEnabled: DEFAULT_SETTINGS.autoExpandEnabled,
+        debugMode: DEFAULT_SETTINGS.debugMode,
+        errorReportingEnabled: DEFAULT_SETTINGS.errorReportingEnabled,
+      });
+
+      await chrome.storage.local.set({
+        expandCount: DEFAULT_SETTINGS.expandCount,
+        lastExpanded: DEFAULT_SETTINGS.lastExpanded,
+        dailyExpandCount: DEFAULT_SETTINGS.dailyExpandCount,
+        lastResetDate: DEFAULT_SETTINGS.lastResetDate,
+      });
     } catch (error) {
       console.error('[Storage] Failed to reset settings:', error);
       throw error;
@@ -110,11 +124,11 @@ export const storage = {
   },
 
   /**
-   * Listen for storage changes
+   * Listen for storage changes (both sync and local)
    */
   onChanged(callback: (changes: { [key: string]: chrome.storage.StorageChange }) => void): void {
     chrome.storage.onChanged.addListener((changes, areaName) => {
-      if (areaName === 'sync') {
+      if (areaName === 'sync' || areaName === 'local') {
         callback(changes);
       }
     });
