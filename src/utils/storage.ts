@@ -45,10 +45,30 @@ export const storage = {
 
   /**
    * Save settings to Chrome storage
+   * User preferences go to sync, usage tracking goes to local
    */
   async saveSettings(settings: Partial<ExtensionSettings>): Promise<void> {
     try {
-      await chrome.storage.sync.set(settings);
+      // Split settings into sync (preferences) and local (usage tracking)
+      const syncSettings: any = {};
+      const localSettings: any = {};
+
+      if ('autoExpandEnabled' in settings) syncSettings.autoExpandEnabled = settings.autoExpandEnabled;
+      if ('debugMode' in settings) syncSettings.debugMode = settings.debugMode;
+      if ('errorReportingEnabled' in settings) syncSettings.errorReportingEnabled = settings.errorReportingEnabled;
+
+      if ('expandCount' in settings) localSettings.expandCount = settings.expandCount;
+      if ('lastExpanded' in settings) localSettings.lastExpanded = settings.lastExpanded;
+      if ('dailyExpandCount' in settings) localSettings.dailyExpandCount = settings.dailyExpandCount;
+      if ('lastResetDate' in settings) localSettings.lastResetDate = settings.lastResetDate;
+
+      // Save to appropriate storage
+      if (Object.keys(syncSettings).length > 0) {
+        await chrome.storage.sync.set(syncSettings);
+      }
+      if (Object.keys(localSettings).length > 0) {
+        await chrome.storage.local.set(localSettings);
+      }
     } catch (error) {
       console.error('[Storage] Failed to save settings:', error);
       throw error;
