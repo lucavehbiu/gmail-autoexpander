@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy - Gmail Unlimited Auto Expander</title>
+    <meta name="description" content="Privacy policy for Gmail Unlimited - Auto Expander Chrome extension">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <nav class="container">
+            <div class="logo">
+                <h1>📧 Gmail Unlimited</h1>
+            </div>
+            <ul class="nav-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="index.html#features">Features</a></li>
+                <li><a href="https://github.com/lucavehbiu/gmail-autoexpander">GitHub</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main class="privacy-page">
+        <div class="container">
+            <h1>Privacy Policy</h1>
+            <p class="last-updated">Last Updated: January 16, 2025</p>
+
+            <section class="privacy-section">
+                <h2>Overview</h2>
+                <p>Gmail Unlimited - Auto Expander ("the Extension") is committed to protecting your privacy. This privacy policy explains how the Extension handles your data when you use it.</p>
+                <p><strong>TL;DR: We collect nothing. All processing happens locally in your browser.</strong></p>
+            </section>
+
+            <section class="privacy-section">
+                <h2>Information Collection and Use</h2>
+                <h3>What We Don't Collect</h3>
+                <ul>
+                    <li>❌ We do NOT collect any personal information</li>
+                    <li>❌ We do NOT read, store, or transmit your email content</li>
+                    <li>❌ We do NOT track your browsing history</li>
+                    <li>❌ We do NOT use cookies or analytics</li>
+                    <li>❌ We do NOT collect any usage statistics</li>
+                    <li>❌ We do NOT share any data with third parties</li>
+                    <li>❌ We do NOT sell any data</li>
+                </ul>
+
+                <h3>What We Do</h3>
+                <ul>
+                    <li>✅ Process Gmail page content <strong>locally</strong> in your browser to detect clipped messages</li>
+                    <li>✅ Store your preferences (like auto-expand settings) <strong>locally</strong> on your device using Chrome's local storage API</li>
+                    <li>✅ Operate entirely offline without any external server communication</li>
+                </ul>
+            </section>
+
+            <section class="privacy-section">
+                <h2>Permissions Explained</h2>
+                <p>The Extension requests the following permissions. Here's exactly why each is needed:</p>
+
+                <div class="permission-item">
+                    <h3>🌐 Access to mail.google.com</h3>
+                    <p><strong>Why:</strong> This permission allows the Extension to run on Gmail pages and detect clipped messages.</p>
+                    <p><strong>What we do:</strong> We scan the Gmail page DOM (Document Object Model) to find the "View entire message" buttons and automatically click them.</p>
+                    <p><strong>What we DON'T do:</strong> We never read email content, sender information, or any private data. We only look for UI elements that indicate a message is clipped.</p>
+                </div>
+
+                <div class="permission-item">
+                    <h3>💾 Storage</h3>
+                    <p><strong>Why:</strong> To save your preferences (like whether auto-expansion is enabled).</p>
+                    <p><strong>What we store:</strong> Only your settings, such as auto-expand on/off state.</p>
+                    <p><strong>Where it's stored:</strong> Locally on your device using Chrome's local storage. This data never leaves your computer.</p>
+                </div>
+
+                <div class="permission-item">
+                    <h3>📝 Scripting</h3>
+                    <p><strong>Why:</strong> To inject the content script that performs the auto-expansion on Gmail pages.</p>
+                    <p><strong>What we do:</strong> Run JavaScript code that finds and clicks "View entire message" buttons automatically.</p>
+                </div>
+            </section>
+
+            <section class="privacy-section">
+                <h2>Data Storage</h2>
+                <p>The Extension stores minimal data locally on your device:</p>
+                <ul>
+                    <li><strong>User Preferences:</strong> Your settings (e.g., auto-expand enabled/disabled)</li>
+                    <li><strong>Storage Location:</strong> Chrome's local storage API (stored on your device only)</li>
+                    <li><strong>Data Access:</strong> Only the Extension can access this data. No external servers or third parties have access.</li>
+                </ul>
+            </section>
+
+            <section class="privacy-section">
+                <h2>Data Transmission</h2>
+                <p><strong>The Extension does NOT transmit any data.</strong></p>
+                <ul>
+                    <li>No network requests are made to external servers</li>
+                    <li>No telemetry or analytics are collected</li>
+                    <li>No crash reports are sent</li>
+                    <li>All functionality is 100% local</li>
+                </ul>
+            </section>
+
+            <section class="privacy-section">
+                <h2>Third-Party Services</h2>
+                <p>The Extension does NOT use any third-party services, analytics, or tracking tools. We do not integrate with:</p>
+                <ul>
+                    <li>Google Analytics or any analytics platform</li>
+                    <li>Advertising networks</li>
+                    <li>Error tracking services (like Sentry)</li>
+                    <li>Any other external services</li>
+                </ul>
+            </section>
+
+            <section class="privacy-section">
+                <h2>Open Source</h2>
+                <p>Gmail Unlimited is completely open-source. You can review the entire source code to verify our privacy claims:</p>
+                <ul>
+                    <li><strong>GitHub Repository:</strong> <a href="https://github.com/lucavehbiu/gmail-autoexpander">github.com/lucavehbiu/gmail-autoexpander</a></li>
+                    <li><strong>License:</strong> MIT License</li>
+                    <li><strong>Transparency:</strong> Every line of code is publicly available for inspection</li>
+                </ul>
+            </section>
+
+            <section class="privacy-section">
+                <h2>Children's Privacy</h2>
+                <p>The Extension does not knowingly collect any information from anyone, including children under 13. Since we collect no data at all, the Extension is safe for users of all ages.</p>
+            </section>
+
+            <section class="privacy-section">
+                <h2>Changes to This Privacy Policy</h2>
+                <p>We may update this privacy policy from time to time. We will notify you of any changes by:</p>
+                <ul>
+                    <li>Updating the "Last Updated" date at the top of this policy</li>
+                    <li>Posting the new privacy policy on this page</li>
+                </ul>
+                <p>We encourage you to review this privacy policy periodically.</p>
+            </section>
+
+            <section class="privacy-section">
+                <h2>Your Rights</h2>
+                <p>Since we don't collect any personal data, there is no data to:</p>
+                <ul>
+                    <li>Access</li>
+                    <li>Delete</li>
+                    <li>Correct</li>
+                    <li>Export</li>
+                </ul>
+                <p>You have complete control over the Extension:</p>
+                <ul>
+                    <li><strong>Disable it:</strong> Toggle the Extension off in Chrome's extension settings</li>
+                    <li><strong>Remove it:</strong> Uninstall the Extension at any time from Chrome</li>
+                    <li><strong>Clear settings:</strong> Your locally stored preferences are deleted when you uninstall the Extension</li>
+                </ul>
+            </section>
+
+            <section class="privacy-section">
+                <h2>GDPR Compliance</h2>
+                <p>For users in the European Union:</p>
+                <ul>
+                    <li>The Extension does not process personal data, so GDPR data processing requirements do not apply</li>
+                    <li>No consent is required because no personal data is collected</li>
+                    <li>No data is transferred outside the EU because no data is collected</li>
+                    <li>You can use the Extension with complete peace of mind regarding your privacy rights</li>
+                </ul>
+            </section>
+
+            <section class="privacy-section">
+                <h2>CCPA Compliance</h2>
+                <p>For users in California:</p>
+                <ul>
+                    <li>The Extension does not sell personal information (because we don't collect any)</li>
+                    <li>The Extension does not share personal information with third parties</li>
+                    <li>You have nothing to opt out of because we collect nothing</li>
+                </ul>
+            </section>
+
+            <section class="privacy-section">
+                <h2>Contact Us</h2>
+                <p>If you have any questions about this privacy policy or the Extension's privacy practices, please contact us:</p>
+                <ul>
+                    <li><strong>GitHub Issues:</strong> <a href="https://github.com/lucavehbiu/gmail-autoexpander/issues">github.com/lucavehbiu/gmail-autoexpander/issues</a></li>
+                    <li><strong>Email:</strong> lvehbiu@reelmetrics.com</li>
+                </ul>
+            </section>
+
+            <section class="privacy-section summary">
+                <h2>Summary</h2>
+                <div class="summary-box">
+                    <p><strong>Gmail Unlimited is privacy-first by design:</strong></p>
+                    <ul>
+                        <li>✅ Zero data collection</li>
+                        <li>✅ 100% local processing</li>
+                        <li>✅ No external servers</li>
+                        <li>✅ No tracking or analytics</li>
+                        <li>✅ Open-source and auditable</li>
+                        <li>✅ Your email content never leaves your browser</li>
+                    </ul>
+                    <p><strong>Your privacy is guaranteed because we literally have no way to access your data.</strong></p>
+                </div>
+            </section>
+
+            <div class="back-to-home">
+                <a href="index.html" class="button button-primary">← Back to Home</a>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>Gmail Unlimited</h4>
+                    <p>Privacy-first email reading extension.</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Links</h4>
+                    <ul>
+                        <li><a href="index.html">Home</a></li>
+                        <li><a href="https://github.com/lucavehbiu/gmail-autoexpander">GitHub</a></li>
+                        <li><a href="https://github.com/lucavehbiu/gmail-autoexpander/issues">Support</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Legal</h4>
+                    <ul>
+                        <li><a href="privacy.html">Privacy Policy</a></li>
+                        <li><a href="https://github.com/lucavehbiu/gmail-autoexpander/blob/main/LICENSE">MIT License</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 Gmail Unlimited. Open-source project under MIT License.</p>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
