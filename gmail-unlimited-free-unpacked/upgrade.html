@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upgrade to Unlimited - Gmail Unlimited</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 500px;
+      width: 100%;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #1a73e8 0%, #174ea6 100%);
+      color: white;
+      padding: 32px 24px;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .header p {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+
+    .content {
+      padding: 32px 24px;
+    }
+
+    .pricing-card {
+      background: linear-gradient(135deg, #f8f9fa 0%, #e8eaed 100%);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+      border: 2px solid #1a73e8;
+    }
+
+    .price {
+      font-size: 48px;
+      font-weight: 700;
+      color: #1a73e8;
+      margin-bottom: 8px;
+    }
+
+    .price-label {
+      font-size: 14px;
+      color: #5f6368;
+      margin-bottom: 20px;
+    }
+
+    .features {
+      list-style: none;
+      margin-bottom: 24px;
+    }
+
+    .features li {
+      padding: 12px 0;
+      border-bottom: 1px solid #e8eaed;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 14px;
+      color: #202124;
+    }
+
+    .features li:last-child {
+      border-bottom: none;
+    }
+
+    .features li::before {
+      content: "✓";
+      color: #1a73e8;
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    .checkout-button {
+      width: 100%;
+      padding: 16px;
+      background: #1a73e8;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+      margin-bottom: 16px;
+    }
+
+    .checkout-button:hover {
+      background: #1557b0;
+    }
+
+    .checkout-button:disabled {
+      background: #dadce0;
+      cursor: not-allowed;
+    }
+
+    .secure-note {
+      text-align: center;
+      font-size: 12px;
+      color: #5f6368;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .secure-note::before {
+      content: "🔒";
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .loading.active {
+      display: block;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid #e8eaed;
+      border-top-color: #1a73e8;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 12px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .error {
+      background: #fce8e6;
+      color: #d93025;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 14px;
+      display: none;
+    }
+
+    .error.active {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Upgrade to Unlimited</h1>
+      <p>Never worry about daily limits again</p>
+    </div>
+
+    <div class="content">
+      <div class="pricing-card">
+        <div class="price">$2.99</div>
+        <div class="price-label">One-time payment • Lifetime access</div>
+
+        <ul class="features">
+          <li>Unlimited message expansions</li>
+          <li>No daily limits ever</li>
+          <li>Lifetime updates included</li>
+          <li>One-time payment (no subscription)</li>
+          <li>Cancel anytime (30-day refund)</li>
+        </ul>
+      </div>
+
+      <div class="error" id="error"></div>
+
+      <button class="checkout-button" id="checkout-btn">
+        Upgrade Now - $2.99
+      </button>
+
+      <div class="secure-note">
+        Secure checkout powered by Stripe
+      </div>
+
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>Redirecting to secure checkout...</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://js.stripe.com/v3/"></script>
+  <script>
+    // REPLACE THIS with your actual Stripe publishable key
+    const STRIPE_PUBLISHABLE_KEY = 'pk_test_YOUR_KEY_HERE';
+
+    const checkoutBtn = document.getElementById('checkout-btn');
+    const loading = document.getElementById('loading');
+    const errorDiv = document.getElementById('error');
+
+    // Initialize Stripe
+    let stripe;
+    try {
+      stripe = Stripe(STRIPE_PUBLISHABLE_KEY);
+    } catch (err) {
+      showError('Stripe not configured. Please add your Stripe key.');
+      checkoutBtn.disabled = true;
+    }
+
+    checkoutBtn.addEventListener('click', async () => {
+      checkoutBtn.disabled = true;
+      loading.classList.add('active');
+      errorDiv.classList.remove('active');
+
+      try {
+        // Get extension ID for return URL
+        const extensionId = chrome.runtime.id;
+        const returnUrl = chrome.runtime.getURL('success.html');
+
+        // Call your backend to create checkout session
+        const response = await fetch('YOUR_BACKEND_URL/create-checkout-session', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            extensionId: extensionId,
+            returnUrl: returnUrl,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to create checkout session');
+        }
+
+        const { sessionId } = await response.json();
+
+        // Redirect to Stripe Checkout
+        const { error } = await stripe.redirectToCheckout({ sessionId });
+
+        if (error) {
+          throw error;
+        }
+      } catch (error) {
+        console.error('Checkout error:', error);
+        showError(error.message || 'Something went wrong. Please try again.');
+        checkoutBtn.disabled = false;
+        loading.classList.remove('active');
+      }
+    });
+
+    function showError(message) {
+      errorDiv.textContent = message;
+      errorDiv.classList.add('active');
+    }
+  </script>
+</body>
+</html>

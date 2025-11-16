@@ -451,15 +451,13 @@ function showUpgradePrompt(container: HTMLElement): void {
   description.style.cssText = 'all: initial !important; font-size: 13px !important; color: #f57c00 !important; line-height: 1.5 !important;';
   description.textContent = 'Get Gmail Unlimited Pro for unlimited auto-expansions at just $2.99 (one-time payment)';
 
-  const upgradeButton = document.createElement('a');
-  upgradeButton.href = 'https://chrome.google.com/webstore/detail/gmail-unlimited-pro/YOUR_PRO_ID';
-  upgradeButton.target = '_blank';
+  const upgradeButton = document.createElement('button');
   upgradeButton.style.cssText = `
     all: initial !important;
     display: inline-block !important;
     background: #ff9800 !important;
     color: white !important;
-    text-decoration: none !important;
+    border: none !important;
     padding: 12px 24px !important;
     border-radius: 6px !important;
     font-size: 14px !important;
@@ -469,7 +467,10 @@ function showUpgradePrompt(container: HTMLElement): void {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif !important;
     text-align: center !important;
   `;
-  upgradeButton.textContent = 'Upgrade to Pro - $2.99';
+  upgradeButton.textContent = 'Upgrade to Unlimited - $2.99';
+  upgradeButton.onclick = () => {
+    chrome.runtime.sendMessage({ type: 'OPEN_UPGRADE' });
+  };
 
   upgradePrompt.appendChild(message);
   upgradePrompt.appendChild(description);

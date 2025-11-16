@@ -16,6 +16,8 @@ export const storage = {
         autoExpandEnabled: DEFAULT_SETTINGS.autoExpandEnabled,
         debugMode: DEFAULT_SETTINGS.debugMode,
         errorReportingEnabled: DEFAULT_SETTINGS.errorReportingEnabled,
+        isPremium: DEFAULT_SETTINGS.isPremium,
+        licenseKey: DEFAULT_SETTINGS.licenseKey,
       });
 
       // Get usage tracking from local (persists in incognito)
@@ -56,6 +58,8 @@ export const storage = {
       if ('autoExpandEnabled' in settings) syncSettings.autoExpandEnabled = settings.autoExpandEnabled;
       if ('debugMode' in settings) syncSettings.debugMode = settings.debugMode;
       if ('errorReportingEnabled' in settings) syncSettings.errorReportingEnabled = settings.errorReportingEnabled;
+      if ('isPremium' in settings) syncSettings.isPremium = settings.isPremium;
+      if ('licenseKey' in settings) syncSettings.licenseKey = settings.licenseKey;
 
       if ('expandCount' in settings) localSettings.expandCount = settings.expandCount;
       if ('lastExpanded' in settings) localSettings.lastExpanded = settings.lastExpanded;
@@ -88,12 +92,35 @@ export const storage = {
   },
 
   /**
-   * Check if user can expand (within free limit)
+   * Check if user can expand (premium or within free limit)
    */
   async canExpand(): Promise<boolean> {
     const settings = await this.getSettings();
+
+    // Premium users have unlimited
+    if (settings.isPremium) {
+      return true;
+    }
+
+    // Free users have daily limit
     const FREE_DAILY_LIMIT = 5;
     return settings.dailyExpandCount < FREE_DAILY_LIMIT;
+  },
+
+  /**
+   * Activate premium license
+   */
+  async activatePremium(licenseKey: string): Promise<boolean> {
+    try {
+      await this.saveSettings({
+        isPremium: true,
+        licenseKey: licenseKey,
+      });
+      return true;
+    } catch (error) {
+      console.error('[Storage] Failed to activate premium:', error);
+      return false;
+    }
   },
 
   /**

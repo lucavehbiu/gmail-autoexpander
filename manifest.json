@@ -44,5 +44,12 @@
       "resources": ["assets/*"],
       "matches": ["https://mail.google.com/*"]
     }
-  ]
+  ],
+
+  "externally_connectable": {
+    "matches": [
+      "https://*.vercel.app/*",
+      "http://localhost:*/*"
+    ]
+  }
 }

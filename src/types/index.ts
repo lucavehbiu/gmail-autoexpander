@@ -11,6 +11,9 @@ export interface ExtensionSettings {
   // Free version tracking
   dailyExpandCount: number;
   lastResetDate: string;
+  // Premium
+  isPremium: boolean;
+  licenseKey: string | null;
 }
 
 export interface ExpansionStats {
@@ -41,6 +44,8 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   lastExpanded: null,
   dailyExpandCount: 0,
   lastResetDate: new Date().toISOString().split('T')[0],
+  isPremium: false,
+  licenseKey: null,
 };
 
 export const FREE_DAILY_LIMIT = 5;

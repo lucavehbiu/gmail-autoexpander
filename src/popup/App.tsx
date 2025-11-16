@@ -9,6 +9,9 @@ import { ExtensionSettings, FREE_DAILY_LIMIT } from '../types';
 const App: React.FC = () => {
   const [settings, setSettings] = useState<ExtensionSettings | null>(null);
   const [saving, setSaving] = useState(false);
+  const [licenseKey, setLicenseKey] = useState('');
+  const [activating, setActivating] = useState(false);
+  const [activationMessage, setActivationMessage] = useState('');
 
   // Load settings on mount
   useEffect(() => {
@@ -46,6 +49,41 @@ const App: React.FC = () => {
       await loadSettings();
     } catch (error) {
       console.error('Failed to reset settings:', error);
+    }
+  };
+
+  const handleUpgrade = () => {
+    chrome.runtime.sendMessage({ type: 'OPEN_UPGRADE' });
+  };
+
+  const handleActivateLicense = async () => {
+    if (!licenseKey.trim()) {
+      setActivationMessage('Please enter a license key');
+      return;
+    }
+
+    setActivating(true);
+    setActivationMessage('');
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'ACTIVATE_PREMIUM',
+        licenseKey: licenseKey.trim()
+      });
+
+      if (response.success) {
+        setActivationMessage('License activated successfully! ✓');
+        setLicenseKey('');
+        await loadSettings(); // Reload to show premium status
+      } else {
+        setActivationMessage('Failed to activate license');
+      }
+    } catch (error) {
+      console.error('Activation error:', error);
+      setActivationMessage('Error activating license');
+    } finally {
+      setActivating(false);
+      setTimeout(() => setActivationMessage(''), 3000);
     }
   };
 
@@ -130,20 +168,103 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      {/* Daily Usage */}
-      <div className="usage-section">
-        <h3>Daily Usage (Free)</h3>
-        <div className="usage-bar">
-          <div className="usage-fill" style={{ width: `${(settings.dailyExpandCount / FREE_DAILY_LIMIT) * 100}%` }}></div>
+      {/* Premium Status or Daily Usage */}
+      {settings.isPremium ? (
+        <div className="premium-section">
+          <div className="premium-badge">
+            <span className="premium-icon">✓</span>
+            <div>
+              <div className="premium-title">Premium Active</div>
+              <div className="premium-subtitle">Unlimited expansions forever</div>
+            </div>
+          </div>
+          {settings.licenseKey && (
+            <div style={{
+              marginTop: '12px',
+              padding: '12px',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '8px',
+              border: '1px solid #e8eaed'
+            }}>
+              <div style={{ fontSize: '11px', color: '#5f6368', marginBottom: '4px' }}>
+                License Key
+              </div>
+              <div style={{
+                fontSize: '12px',
+                fontFamily: 'monospace',
+                color: '#202124',
+                wordBreak: 'break-all'
+              }}>
+                {settings.licenseKey}
+              </div>
+            </div>
+          )}
         </div>
-        <p className="usage-text">{settings.dailyExpandCount} / {FREE_DAILY_LIMIT} expansions today</p>
-        {settings.dailyExpandCount >= FREE_DAILY_LIMIT && (
-          <p className="usage-limit">Daily limit reached! <a href="https://chrome.google.com/webstore/YOUR_PRO_ID" target="_blank" rel="noopener noreferrer">Upgrade to Pro</a> for unlimited.</p>
-        )}
-        <a href="https://chrome.google.com/webstore/YOUR_PRO_ID" target="_blank" rel="noopener noreferrer" className="btn-upgrade">
-          Upgrade to Pro - $2.99
-        </a>
-      </div>
+      ) : (
+        <div className="usage-section">
+          <h3>Daily Usage (Free)</h3>
+          <div className="usage-bar">
+            <div className="usage-fill" style={{ width: `${(settings.dailyExpandCount / FREE_DAILY_LIMIT) * 100}%` }}></div>
+          </div>
+          <p className="usage-text">{settings.dailyExpandCount} / {FREE_DAILY_LIMIT} expansions today</p>
+          {settings.dailyExpandCount >= FREE_DAILY_LIMIT && (
+            <p className="usage-limit">Daily limit reached! Upgrade for unlimited expansions.</p>
+          )}
+          <button className="btn-upgrade" onClick={handleUpgrade}>
+            Upgrade to Unlimited - $2.99
+          </button>
+
+          {/* License Key Activation */}
+          <div className="license-activation" style={{ marginTop: '16px' }}>
+            <div style={{ fontSize: '13px', color: '#666', marginBottom: '8px' }}>
+              Already purchased? Enter your license key:
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type="text"
+                value={licenseKey}
+                onChange={(e) => setLicenseKey(e.target.value)}
+                placeholder="GM-XXXX-XXXX-XXXX-XXXX-XXXX"
+                style={{
+                  flex: 1,
+                  padding: '8px 12px',
+                  border: '1px solid #ddd',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  fontFamily: 'monospace'
+                }}
+                disabled={activating}
+              />
+              <button
+                onClick={handleActivateLicense}
+                disabled={activating}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#34a853',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  cursor: activating ? 'not-allowed' : 'pointer',
+                  opacity: activating ? 0.6 : 1
+                }}
+              >
+                {activating ? 'Activating...' : 'Activate'}
+              </button>
+            </div>
+            {activationMessage && (
+              <div style={{
+                marginTop: '8px',
+                fontSize: '12px',
+                color: activationMessage.includes('✓') ? '#34a853' : '#d93025'
+              }}>
+                {activationMessage}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Statistics */}
       <div className="stats-section">

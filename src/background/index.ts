@@ -34,6 +34,28 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     // Get expansion statistics
     getStats().then(sendResponse);
     return true; // Indicate async response
+  } else if (message.type === 'OPEN_UPGRADE') {
+    // Open hosted payment page in new tab
+    const extensionId = chrome.runtime.id;
+    const upgradeUrl = `https://frontend-oo42hxwa0-lucas-projects-7cbc24c5.vercel.app/upgrade.html?ext_id=${extensionId}`;
+    chrome.tabs.create({ url: upgradeUrl });
+    sendResponse({ success: true });
+  } else if (message.type === 'ACTIVATE_PREMIUM') {
+    // Activate premium with license key (from hosted page or internal)
+    activatePremium(message.licenseKey).then(sendResponse);
+    return true; // Indicate async response
+  }
+
+  return false;
+});
+
+// Handle external messages (from hosted payment pages)
+chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
+  console.log('[Background] Received external message:', message, 'from:', sender.url);
+
+  if (message.type === 'ACTIVATE_PREMIUM' && message.licenseKey) {
+    activatePremium(message.licenseKey).then(sendResponse);
+    return true; // Indicate async response
   }
 
   return false;
@@ -60,11 +82,30 @@ async function handleErrorReport(error: any): Promise<void> {
  * Get expansion statistics
  */
 async function getStats(): Promise<any> {
-  const data = await chrome.storage.sync.get(['expandCount', 'lastExpanded']);
+  const data = await chrome.storage.local.get(['expandCount', 'lastExpanded']);
   return {
     expandCount: data.expandCount || 0,
     lastExpanded: data.lastExpanded || null,
   };
+}
+
+/**
+ * Activate premium with license key
+ */
+async function activatePremium(licenseKey: string): Promise<any> {
+  try {
+    // Store premium status in sync (syncs across devices)
+    await chrome.storage.sync.set({
+      isPremium: true,
+      licenseKey: licenseKey,
+    });
+
+    console.log('[Background] Premium activated with license:', licenseKey);
+    return { success: true };
+  } catch (error) {
+    console.error('[Background] Failed to activate premium:', error);
+    return { success: false, error: 'Failed to activate license' };
+  }
 }
 
 // Keep service worker alive (required for MV3)

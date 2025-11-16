@@ -152,6 +152,41 @@ input:checked + .slider:before {
   transform: translateX(20px);
 }
 
+/* Premium Section */
+.premium-section {
+  padding: 20px;
+  background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+  border-top: 1px solid #e8eaed;
+}
+
+.premium-badge {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: white;
+  padding: 16px;
+  border-radius: 8px;
+  border: 2px solid #4caf50;
+}
+
+.premium-icon {
+  font-size: 24px;
+  color: #4caf50;
+  font-weight: bold;
+}
+
+.premium-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #2e7d32;
+  margin-bottom: 2px;
+}
+
+.premium-subtitle {
+  font-size: 12px;
+  color: #66bb6a;
+}
+
 /* Usage Section */
 .usage-section {
   padding: 20px;
@@ -207,15 +242,20 @@ input:checked + .slider:before {
   background: #ff9800;
   color: white;
   text-align: center;
-  text-decoration: none;
+  border: none;
   border-radius: 6px;
   font-size: 14px;
   font-weight: 600;
+  cursor: pointer;
   transition: background 0.2s;
 }
 
 .btn-upgrade:hover {
   background: #f57c00;
+}
+
+.btn-upgrade:active {
+  transform: scale(0.98);
 }
 
 /* Statistics Section */

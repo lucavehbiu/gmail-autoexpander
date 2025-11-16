@@ -1,0 +1,15 @@
+{
+  "name": "gmail-unlimited-backend",
+  "version": "1.0.0",
+  "description": "Stripe payment backend for Gmail Unlimited",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "dependencies": {
+    "stripe": "^14.0.0",
+    "micro": "^10.0.1",
+    "micro-cors": "^0.1.1"
+  }
+}
