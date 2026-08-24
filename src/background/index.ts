@@ -4,6 +4,7 @@
  */
 
 import { DEFAULT_SETTINGS } from '../types';
+import { validateLicenseKey } from '../utils/license';
 
 // Initialize extension on install
 chrome.runtime.onInstalled.addListener(async (details) => {
@@ -93,20 +94,73 @@ async function getStats(): Promise<any> {
  * Activate premium with license key
  */
 async function activatePremium(licenseKey: string): Promise<any> {
+  const key = String(licenseKey || '').trim().toUpperCase();
+
+  if (!key) {
+    return { success: false, error: 'Please enter a license key' };
+  }
+
+  const result = await validateLicenseKey(key);
+
+  if (result.status === 'unreachable') {
+    return {
+      success: false,
+      error: "Couldn't reach the license server. Check your connection and try again.",
+    };
+  }
+
+  if (result.status === 'invalid') {
+    return { success: false, error: 'That license key is not valid.' };
+  }
+
   try {
     // Store premium status in sync (syncs across devices)
     await chrome.storage.sync.set({
       isPremium: true,
-      licenseKey: licenseKey,
+      licenseKey: key,
     });
 
-    console.log('[Background] Premium activated with license:', licenseKey);
+    console.log('[Background] Premium activated');
     return { success: true };
   } catch (error) {
     console.error('[Background] Failed to activate premium:', error);
-    return { success: false, error: 'Failed to activate license' };
+    return { success: false, error: 'Failed to save your license locally.' };
   }
 }
+
+/**
+ * Re-check the stored key when the browser starts.
+ *
+ * Without this a refunded or revoked key stays premium forever, since
+ * isPremium lives in chrome.storage.sync and is never revisited. Uses
+ * onStartup rather than chrome.alarms so no new manifest permission is needed.
+ *
+ * Only an explicit 'invalid' downgrades. An unreachable server leaves premium
+ * intact — a paying customer on a plane keeps what they bought.
+ */
+async function revalidateStoredLicense(): Promise<void> {
+  const { isPremium, licenseKey } = await chrome.storage.sync.get({
+    isPremium: false,
+    licenseKey: null,
+  });
+
+  if (!isPremium || !licenseKey) {
+    return;
+  }
+
+  const result = await validateLicenseKey(licenseKey);
+
+  if (result.status === 'invalid') {
+    console.log('[Background] Stored license is no longer valid, downgrading');
+    await chrome.storage.sync.set({ isPremium: false, licenseKey: null });
+  }
+}
+
+chrome.runtime.onStartup.addListener(() => {
+  revalidateStoredLicense().catch((error) =>
+    console.error('[Background] Revalidation failed:', error)
+  );
+});
 
 // Keep service worker alive (required for MV3)
 // Service workers automatically terminate after 30 seconds of inactivity
