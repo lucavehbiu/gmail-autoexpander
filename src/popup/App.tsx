@@ -76,7 +76,9 @@ const App: React.FC = () => {
         setLicenseKey('');
         await loadSettings(); // Reload to show premium status
       } else {
-        setActivationMessage('Failed to activate license');
+        // Surface the backend's reason — "not valid" and "couldn't reach the
+        // server" need different actions from the user.
+        setActivationMessage(response?.error || 'Failed to activate license');
       }
     } catch (error) {
       console.error('Activation error:', error);
