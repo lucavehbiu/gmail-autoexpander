@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gmail Unlimited — Upgrade</title>
+  <link rel="stylesheet" href="page.css">
+</head>
+<body>
+  <main class="sheet">
+    <header class="masthead">
+      <h1>Gmail Unlimited</h1>
+      <span>Upgrade</span>
+    </header>
+
+    <div class="body">
+      <p class="lede">Stop clicking &ldquo;View entire message&rdquo;.</p>
+      <p class="sub">
+        The free tier expands five clipped messages a day. Unlimited removes
+        the cap, once, for good.
+      </p>
+
+      <div class="price">
+        <span class="price-figure">$2.99</span>
+        <span class="price-terms">once, not a subscription</span>
+      </div>
+
+      <ul class="included">
+        <li>Unlimited expansions, every day</li>
+        <li>Works on every Gmail account in this browser</li>
+        <li>Your key appears on the next page and activates itself</li>
+        <li>Lose it and you can look it up again with your purchase email</li>
+      </ul>
+
+      <div class="actions">
+        <button class="btn btn-loud" id="checkout-btn">Continue to payment</button>
+      </div>
+
+      <div class="loading" id="loading">Opening Stripe Checkout&hellip;</div>
+      <div class="error" id="error"></div>
+
+      <p class="footnote">
+        Payment is handled by Stripe. Card details never reach this page or the
+        extension.
+      </p>
+    </div>
+  </main>
+
+  <script src="upgrade.js"></script>
+</body>
+</html>

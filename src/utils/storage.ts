@@ -18,6 +18,8 @@ export const storage = {
         errorReportingEnabled: DEFAULT_SETTINGS.errorReportingEnabled,
         isPremium: DEFAULT_SETTINGS.isPremium,
         licenseKey: DEFAULT_SETTINGS.licenseKey,
+        licenseVerified: DEFAULT_SETTINGS.licenseVerified,
+        licenseNeedsAttention: DEFAULT_SETTINGS.licenseNeedsAttention,
       });
 
       // Get usage tracking from local (persists in incognito)
@@ -60,6 +62,8 @@ export const storage = {
       if ('errorReportingEnabled' in settings) syncSettings.errorReportingEnabled = settings.errorReportingEnabled;
       if ('isPremium' in settings) syncSettings.isPremium = settings.isPremium;
       if ('licenseKey' in settings) syncSettings.licenseKey = settings.licenseKey;
+      if ('licenseVerified' in settings) syncSettings.licenseVerified = settings.licenseVerified;
+      if ('licenseNeedsAttention' in settings) syncSettings.licenseNeedsAttention = settings.licenseNeedsAttention;
 
       if ('expandCount' in settings) localSettings.expandCount = settings.expandCount;
       if ('lastExpanded' in settings) localSettings.lastExpanded = settings.lastExpanded;
@@ -108,26 +112,21 @@ export const storage = {
   },
 
   /**
-   * Activate premium license
-   */
-  async activatePremium(licenseKey: string): Promise<boolean> {
-    try {
-      await this.saveSettings({
-        isPremium: true,
-        licenseKey: licenseKey,
-      });
-      return true;
-    } catch (error) {
-      console.error('[Storage] Failed to activate premium:', error);
-      return false;
-    }
-  },
-
-  /**
-   * Reset all settings to default
+   * Reset all settings to default.
+   *
+   * The licence is deliberately carried across: "reset settings" means
+   * preferences and counters, not "throw away the thing you paid for".
    */
   async resetSettings(): Promise<void> {
     try {
+      const { isPremium, licenseKey, licenseVerified, licenseNeedsAttention } =
+        await chrome.storage.sync.get({
+          isPremium: DEFAULT_SETTINGS.isPremium,
+          licenseKey: DEFAULT_SETTINGS.licenseKey,
+          licenseVerified: DEFAULT_SETTINGS.licenseVerified,
+          licenseNeedsAttention: DEFAULT_SETTINGS.licenseNeedsAttention,
+        });
+
       await chrome.storage.sync.clear();
       await chrome.storage.local.clear();
 
@@ -136,6 +135,10 @@ export const storage = {
         autoExpandEnabled: DEFAULT_SETTINGS.autoExpandEnabled,
         debugMode: DEFAULT_SETTINGS.debugMode,
         errorReportingEnabled: DEFAULT_SETTINGS.errorReportingEnabled,
+        isPremium,
+        licenseKey,
+        licenseVerified,
+        licenseNeedsAttention,
       });
 
       await chrome.storage.local.set({

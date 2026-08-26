@@ -14,6 +14,18 @@ export interface ExtensionSettings {
   // Premium
   isPremium: boolean;
   licenseKey: string | null;
+  /**
+   * True once the backend has confirmed this key at least once.
+   *
+   * Keys sold before licences were stored exist in no database, so they can
+   * never validate. Only a key that HAS validated before may be revoked on a
+   * later failure — that is a real refund. A key that has never validated is
+   * a legacy purchase, and the customer is offered recovery instead of being
+   * silently downgraded.
+   */
+  licenseVerified: boolean;
+  /** A stored key stopped validating and the customer needs to recover it. */
+  licenseNeedsAttention: boolean;
 }
 
 export interface ExpansionStats {
@@ -46,6 +58,8 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   lastResetDate: new Date().toISOString().split('T')[0],
   isPremium: false,
   licenseKey: null,
+  licenseVerified: false,
+  licenseNeedsAttention: false,
 };
 
 export const FREE_DAILY_LIMIT = 5;

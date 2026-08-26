@@ -5,7 +5,7 @@ const sessionId = urlParams.get('session_id');
 async function activateLicense() {
   try {
     // Verify payment and get license key from your backend
-    const response = await fetch('https://gmail-autoexpander-gik5v7s01-lucas-projects-7cbc24c5.vercel.app/api/verify-payment', {
+    const response = await fetch('https://gmail-autoexpander.vercel.app/api/verify-payment', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

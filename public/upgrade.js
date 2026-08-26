@@ -13,7 +13,7 @@ checkoutBtn.addEventListener('click', async () => {
     const returnUrl = chrome.runtime.getURL('success.html');
 
     // Call backend to create checkout session
-    const response = await fetch('https://gmail-autoexpander-gik5v7s01-lucas-projects-7cbc24c5.vercel.app/api/create-checkout', {
+    const response = await fetch('https://gmail-autoexpander.vercel.app/api/create-checkout', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

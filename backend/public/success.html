@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gmail Unlimited — You're set</title>
+  <link rel="stylesheet" href="page.css">
+</head>
+<body>
+  <main class="sheet">
+    <header class="masthead">
+      <h1>Gmail Unlimited</h1>
+      <span>Unlimited</span>
+    </header>
+
+    <div class="body">
+      <p class="lede">Payment received.</p>
+      <p class="sub">
+        Unlimited expansions are on. Keep the key below somewhere safe, though
+        you can always look it up again with the email you paid with.
+      </p>
+
+      <div class="keyblock">
+        <span class="keyblock-label">License key</span>
+        <code class="keyblock-value" id="license-key" data-state="pending">Activating&hellip;</code>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-quiet" id="copy-btn">Copy key</button>
+        <button class="btn btn-loud" id="close-btn">Back to Gmail</button>
+      </div>
+
+      <ol class="steps">
+        <li>Refresh any open Gmail tab</li>
+        <li>Clipped messages now expand on their own, without a daily cap</li>
+        <li>The extension icon shows your license whenever you need it</li>
+      </ol>
+
+      <p class="footnote">
+        Key not showing, or something went wrong? Open the extension, choose
+        &ldquo;Lost your key?&rdquo;, and enter the email you paid with.
+      </p>
+    </div>
+  </main>
+
+  <script src="success.js"></script>
+</body>
+</html>

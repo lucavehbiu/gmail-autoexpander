@@ -42,3 +42,8 @@ lerna-debug.log*
 .cache/
 .temp/
 coverage/
+.vercel
+.env*
+
+# Customer emails + license keys. Never commit.
+tasks/license-send-list.csv

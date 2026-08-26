@@ -6,14 +6,107 @@ import React, { useEffect, useState } from 'react';
 import { storage } from '../utils/storage';
 import { ExtensionSettings, FREE_DAILY_LIMIT } from '../types';
 
+type Status = { tone: 'ok' | 'error'; text: string } | null;
+
+/**
+ * "Yesterday" carries more than "8/25/2026" and fits the column without
+ * shrinking the type next to a plain count.
+ */
+function formatLastExpanded(iso: string | null): string {
+  if (!iso) return '—';
+
+  const then = new Date(iso);
+  if (Number.isNaN(then.getTime())) return '—';
+
+  const startOfDay = (d: Date) =>
+    new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const days = Math.round(
+    (startOfDay(new Date()) - startOfDay(then)) / 86_400_000
+  );
+
+  if (days <= 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  if (days < 7) return `${days} days ago`;
+
+  return then.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+/**
+ * Look a license up by the email it was bought with.
+ *
+ * Used in two places, for two different people: someone who never entered
+ * their key, and someone whose stored key stopped validating because it was
+ * issued before licenses were recorded. Same mechanism, different framing.
+ */
+const RecoverByEmail: React.FC<{
+  label: string;
+  onRecovered: () => void;
+}> = ({ label, onRecovered }) => {
+  const [email, setEmail] = useState('');
+  const [working, setWorking] = useState(false);
+  const [status, setStatus] = useState<Status>(null);
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setWorking(true);
+    setStatus(null);
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'RECOVER_LICENSE',
+        email,
+      });
+
+      if (response?.success) {
+        setStatus({ tone: 'ok', text: 'Found it. Premium restored.' });
+        onRecovered();
+      } else {
+        setStatus({ tone: 'error', text: response?.error || 'Lookup failed.' });
+      }
+    } catch {
+      setStatus({ tone: 'error', text: 'Lookup failed. Try again.' });
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  return (
+    <form className="field" onSubmit={submit}>
+      <label className="field-label" htmlFor="recover-email">
+        {label}
+      </label>
+      <div className="field-row">
+        <input
+          id="recover-email"
+          type="email"
+          className="input"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@example.com"
+          autoComplete="email"
+          disabled={working}
+        />
+        <button type="submit" className="btn btn-quiet" disabled={working}>
+          {working ? 'Looking' : 'Find key'}
+        </button>
+      </div>
+      {status && (
+        <p className={`note note-${status.tone}`} role="status">
+          {status.text}
+        </p>
+      )}
+    </form>
+  );
+};
+
 const App: React.FC = () => {
   const [settings, setSettings] = useState<ExtensionSettings | null>(null);
   const [saving, setSaving] = useState(false);
   const [licenseKey, setLicenseKey] = useState('');
   const [activating, setActivating] = useState(false);
-  const [activationMessage, setActivationMessage] = useState('');
+  const [activation, setActivation] = useState<Status>(null);
+  const [recovering, setRecovering] = useState(false);
 
-  // Load settings on mount
   useEffect(() => {
     loadSettings();
   }, []);
@@ -27,20 +120,19 @@ const App: React.FC = () => {
     if (!settings) return;
 
     setSaving(true);
-    const newSettings = { ...settings, [key]: value };
-    setSettings(newSettings);
+    setSettings({ ...settings, [key]: value });
 
     try {
       await storage.saveSettings({ [key]: value });
     } catch (error) {
       console.error('Failed to save setting:', error);
     } finally {
-      setTimeout(() => setSaving(false), 300);
+      setTimeout(() => setSaving(false), 900);
     }
   };
 
   const handleReset = async () => {
-    if (!confirm('Reset all settings to default? This cannot be undone.')) {
+    if (!confirm('Reset preferences and counters? Your license is kept.')) {
       return;
     }
 
@@ -56,264 +148,248 @@ const App: React.FC = () => {
     chrome.runtime.sendMessage({ type: 'OPEN_UPGRADE' });
   };
 
-  const handleActivateLicense = async () => {
+  const handleActivateLicense = async (event: React.FormEvent) => {
+    event.preventDefault();
+
     if (!licenseKey.trim()) {
-      setActivationMessage('Please enter a license key');
+      setActivation({ tone: 'error', text: 'Enter your license key first.' });
       return;
     }
 
     setActivating(true);
-    setActivationMessage('');
+    setActivation(null);
 
     try {
       const response = await chrome.runtime.sendMessage({
         type: 'ACTIVATE_PREMIUM',
-        licenseKey: licenseKey.trim()
+        licenseKey: licenseKey.trim(),
       });
 
-      if (response.success) {
-        setActivationMessage('License activated successfully! ✓');
+      if (response?.success) {
         setLicenseKey('');
-        await loadSettings(); // Reload to show premium status
+        await loadSettings();
       } else {
-        // Surface the backend's reason — "not valid" and "couldn't reach the
-        // server" need different actions from the user.
-        setActivationMessage(response?.error || 'Failed to activate license');
+        // Surface the backend's reason. "not valid" and "couldn't reach the
+        // server" call for different things from the person reading it, and
+        // the message stays put until they try again rather than timing out
+        // from under them.
+        setActivation({
+          tone: 'error',
+          text: response?.error || 'Could not activate that key.',
+        });
       }
     } catch (error) {
       console.error('Activation error:', error);
-      setActivationMessage('Error activating license');
+      setActivation({ tone: 'error', text: 'Could not activate that key.' });
     } finally {
       setActivating(false);
-      setTimeout(() => setActivationMessage(''), 3000);
     }
   };
 
   if (!settings) {
     return (
-      <div className="popup-container loading">
-        <div className="spinner"></div>
-        <p>Loading...</p>
+      <div className="popup popup-loading">
+        <span className="loading-mark" aria-label="Loading" />
       </div>
     );
   }
 
+  const used = Math.min(settings.dailyExpandCount, FREE_DAILY_LIMIT);
+  const atLimit = settings.dailyExpandCount >= FREE_DAILY_LIMIT;
+
   return (
-    <div className="popup-container">
-      {/* Header */}
-      <header className="popup-header">
-        <div className="header-content">
-          <img src="/icons/icon-48.png" alt="Gmail Unlimited" style={{width: '24px', height: '24px', marginRight: '8px'}} />
+    <div className="popup">
+      <header className="masthead">
+        <img className="mark" src="/icons/icon-48.png" alt="" />
+        <div className="masthead-text">
           <h1>Gmail Unlimited</h1>
-          <span className="version">v1.0.0</span>
+          <p>Auto-expands clipped messages</p>
         </div>
-        <p className="subtitle">Auto-expand clipped messages</p>
+        <span className="version">{chrome.runtime.getManifest().version}</span>
       </header>
 
-      {/* Settings */}
-      <div className="settings-section">
-        {/* Auto-expand Toggle */}
-        <div className="setting-item">
-          <div className="setting-info">
+      {settings.licenseNeedsAttention && (
+        <section className="band band-attention">
+          <h2 className="band-title">Confirm your license</h2>
+          <p className="band-body">
+            Your key was issued before we started recording them, so we
+            can&rsquo;t verify it. Premium stays on. Look up your current key
+            with the email you paid with and this goes away for good.
+          </p>
+          <RecoverByEmail
+            label="Purchase email"
+            onRecovered={() => {
+              setRecovering(false);
+              loadSettings();
+            }}
+          />
+        </section>
+      )}
+
+      <section className="controls" aria-label="Settings">
+        <div className="control">
+          <div className="control-text">
             <label htmlFor="autoExpand">Auto-expand clipped messages</label>
-            <span className="setting-desc">
-              Automatically expand emails when you open them
-            </span>
+            <span>Expand long emails the moment you open them</span>
           </div>
-          <label className="toggle">
+          <label className="switch">
             <input
               id="autoExpand"
               type="checkbox"
               checked={settings.autoExpandEnabled}
               onChange={(e) => updateSetting('autoExpandEnabled', e.target.checked)}
             />
-            <span className="slider"></span>
+            <span className="switch-track" />
           </label>
         </div>
 
-        {/* Debug Mode */}
-        <div className="setting-item">
-          <div className="setting-info">
+        <div className="control">
+          <div className="control-text">
             <label htmlFor="debugMode">Debug mode</label>
-            <span className="setting-desc">
-              Show detailed logs in browser console
-            </span>
+            <span>Log what the extension is doing to the console</span>
           </div>
-          <label className="toggle">
+          <label className="switch">
             <input
               id="debugMode"
               type="checkbox"
               checked={settings.debugMode}
               onChange={(e) => updateSetting('debugMode', e.target.checked)}
             />
-            <span className="slider"></span>
+            <span className="switch-track" />
           </label>
         </div>
 
-        {/* Error Reporting */}
-        <div className="setting-item">
-          <div className="setting-info">
+        <div className="control">
+          <div className="control-text">
             <label htmlFor="errorReporting">Error reporting</label>
-            <span className="setting-desc">
-              Help improve the extension (privacy-first, opt-in)
-            </span>
+            <span>Send crash details only. Off unless you turn it on</span>
           </div>
-          <label className="toggle">
+          <label className="switch">
             <input
               id="errorReporting"
               type="checkbox"
               checked={settings.errorReportingEnabled}
-              onChange={(e) => updateSetting('errorReportingEnabled', e.target.checked)}
+              onChange={(e) =>
+                updateSetting('errorReportingEnabled', e.target.checked)
+              }
             />
-            <span className="slider"></span>
+            <span className="switch-track" />
           </label>
         </div>
-      </div>
+      </section>
 
-      {/* Premium Status or Daily Usage */}
       {settings.isPremium ? (
-        <div className="premium-section">
-          <div className="premium-badge">
-            <span className="premium-icon">✓</span>
-            <div>
-              <div className="premium-title">Premium Active</div>
-              <div className="premium-subtitle">Unlimited expansions forever</div>
-            </div>
+        <section className="band" aria-label="License">
+          <div className="plan">
+            <span className="plan-name">Unlimited</span>
+            <span className="plan-state plan-state-on">Active</span>
           </div>
           {settings.licenseKey && (
-            <div style={{
-              marginTop: '12px',
-              padding: '12px',
-              backgroundColor: '#f8f9fa',
-              borderRadius: '8px',
-              border: '1px solid #e8eaed'
-            }}>
-              <div style={{ fontSize: '11px', color: '#5f6368', marginBottom: '4px' }}>
-                License Key
-              </div>
-              <div style={{
-                fontSize: '12px',
-                fontFamily: 'monospace',
-                color: '#202124',
-                wordBreak: 'break-all'
-              }}>
-                {settings.licenseKey}
-              </div>
+            <div className="keyline">
+              <span className="keyline-label">License key</span>
+              <code className="keyline-value">{settings.licenseKey}</code>
             </div>
           )}
-        </div>
+        </section>
       ) : (
-        <div className="usage-section">
-          <h3>Daily Usage (Free)</h3>
-          <div className="usage-bar">
-            <div className="usage-fill" style={{ width: `${(settings.dailyExpandCount / FREE_DAILY_LIMIT) * 100}%` }}></div>
+        <section className="band" aria-label="Daily usage">
+          <div className="plan">
+            <span className="plan-name">Free</span>
+            <span className="plan-state">
+              <strong>{used}</strong> of {FREE_DAILY_LIMIT} today
+            </span>
           </div>
-          <p className="usage-text">{settings.dailyExpandCount} / {FREE_DAILY_LIMIT} expansions today</p>
-          {settings.dailyExpandCount >= FREE_DAILY_LIMIT && (
-            <p className="usage-limit">Daily limit reached! Upgrade for unlimited expansions.</p>
-          )}
-          <button className="btn-upgrade" onClick={handleUpgrade}>
-            Upgrade to Unlimited - $2.99
+
+          <div
+            className="meter"
+            role="meter"
+            aria-valuenow={used}
+            aria-valuemin={0}
+            aria-valuemax={FREE_DAILY_LIMIT}
+            aria-label="Expansions used today"
+          >
+            {Array.from({ length: FREE_DAILY_LIMIT }, (_, i) => (
+              <span
+                key={i}
+                className={`tick${i < used ? ' tick-spent' : ''}`}
+              />
+            ))}
+          </div>
+
+          <p className="band-body">
+            {atLimit
+              ? "That's today's five. Unlimited is a one-time $2.99."
+              : 'Unlimited expansions, one payment of $2.99, no subscription.'}
+          </p>
+
+          <button className="btn btn-loud" onClick={handleUpgrade}>
+            Get unlimited
           </button>
 
-          {/* License Key Activation */}
-          <div className="license-activation" style={{ marginTop: '16px' }}>
-            <div style={{ fontSize: '13px', color: '#666', marginBottom: '8px' }}>
-              Already purchased? Enter your license key:
-            </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
+          <form className="field" onSubmit={handleActivateLicense}>
+            <label className="field-label" htmlFor="licenseKey">
+              Already bought it? Paste your key
+            </label>
+            <div className="field-row">
               <input
+                id="licenseKey"
                 type="text"
+                className="input input-key"
                 value={licenseKey}
                 onChange={(e) => setLicenseKey(e.target.value)}
-                placeholder="GM-XXXX-XXXX-XXXX-XXXX-XXXX"
-                style={{
-                  flex: 1,
-                  padding: '8px 12px',
-                  border: '1px solid #ddd',
-                  borderRadius: '6px',
-                  fontSize: '13px',
-                  fontFamily: 'monospace'
-                }}
+                placeholder="GM-0000-0000-0000-0000-0000-0000"
+                spellCheck={false}
+                autoComplete="off"
                 disabled={activating}
               />
-              <button
-                onClick={handleActivateLicense}
-                disabled={activating}
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: '#34a853',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontSize: '13px',
-                  fontWeight: '500',
-                  cursor: activating ? 'not-allowed' : 'pointer',
-                  opacity: activating ? 0.6 : 1
-                }}
-              >
-                {activating ? 'Activating...' : 'Activate'}
+              <button type="submit" className="btn btn-quiet" disabled={activating}>
+                {activating ? 'Checking' : 'Activate'}
               </button>
             </div>
-            {activationMessage && (
-              <div style={{
-                marginTop: '8px',
-                fontSize: '12px',
-                color: activationMessage.includes('✓') ? '#34a853' : '#d93025'
-              }}>
-                {activationMessage}
-              </div>
+            {activation && (
+              <p className={`note note-${activation.tone}`} role="alert">
+                {activation.text}
+              </p>
             )}
-          </div>
-        </div>
+          </form>
+
+          {recovering ? (
+            <RecoverByEmail
+              label="Email you paid with"
+              onRecovered={() => {
+                setRecovering(false);
+                loadSettings();
+              }}
+            />
+          ) : (
+            <button className="link" onClick={() => setRecovering(true)}>
+              Lost your key?
+            </button>
+          )}
+        </section>
       )}
 
-      {/* Statistics */}
-      <div className="stats-section">
-        <h3>Statistics</h3>
-        <div className="stats-grid">
-          <div className="stat-card">
-            <div className="stat-value">{settings.expandCount}</div>
-            <div className="stat-label">Total Expanded</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-value">
-              {settings.lastExpanded
-                ? new Date(settings.lastExpanded).toLocaleDateString()
-                : 'Never'}
-            </div>
-            <div className="stat-label">Last Expanded</div>
-          </div>
+      <section className="ledger" aria-label="Statistics">
+        <div className="stat">
+          <span className="stat-value">{settings.expandCount}</span>
+          <span className="stat-label">Messages expanded</span>
         </div>
-      </div>
+        <div className="stat">
+          <span className="stat-value">
+            {formatLastExpanded(settings.lastExpanded)}
+          </span>
+          <span className="stat-label">Last expanded</span>
+        </div>
+      </section>
 
-      {/* Actions */}
-      <div className="actions-section">
-        <button className="btn-reset" onClick={handleReset}>
-          Reset Settings
+      <footer className="footer">
+        <button className="link link-muted" onClick={handleReset}>
+          Reset preferences
         </button>
-      </div>
-
-      {/* Footer */}
-      <footer className="popup-footer">
-        <p>Made for Gmail users who hate clicking</p>
-        <div className="footer-links">
-          <a href="https://github.com/your-repo" target="_blank" rel="noopener noreferrer">
-            GitHub
-          </a>
-          <span>•</span>
-          <a href="https://your-support.com" target="_blank" rel="noopener noreferrer">
-            Support
-          </a>
-        </div>
+        <span className={`saved${saving ? ' saved-on' : ''}`} aria-live="polite">
+          {saving ? 'Saved' : ''}
+        </span>
       </footer>
-
-      {/* Save Indicator */}
-      {saving && (
-        <div className="save-indicator">
-          Saved ✓
-        </div>
-      )}
     </div>
   );
 };
