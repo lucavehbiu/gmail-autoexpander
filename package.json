@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "deploy:backend": "cd backend && vercel --prod --yes && node scripts/verify-deploy.js"
   },
   "dependencies": {
     "react": "^18.3.1",

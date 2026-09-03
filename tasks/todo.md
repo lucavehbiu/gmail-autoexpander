@@ -115,14 +115,84 @@ recorded anywhere and cannot be reconstructed. When the update ships they will
 all hit `licenseNeedsAttention`, keep premium, and be asked to look their key
 up by purchase email. That is the designed path, and it now has data behind it.
 
+## Outage, 2026-08-26 16:12 → 2026-09-03 08:52 CEST
+
+**The whole backend was 404 for eight days, and the check that was supposed to
+catch it is the check that caused it.**
+
+The last deploy of 2026-08-26 — the one run to confirm `api/admin-backfill.js`
+was gone — was run from the repo root instead of `backend/`. Vercel's Root
+Directory is `.`, and a stale `.vercel/repo.json` at the root mapped that
+directory to the project, so the CLI happily shipped the repo root as a static
+site and aliased it to production. The repo root had an old `public/` holding
+pre-fix copies of `upgrade.html` and `success.html`, so the hosted pages kept
+answering 200 and nothing looked broken. There were no functions at all:
+`vercel inspect` showed `Builds: . [0ms]` with no λ entries.
+
+Consequences, all of them silent:
+
+- `/api/validate-license` 404 → nobody could activate a key. This is how it
+  surfaced: a customer pasting a valid key got "Couldn't reach the license
+  server."
+- `/api/recover-license` 404 → recovery, the entire escape hatch for the 15
+  backfilled customers, was dead the moment it shipped.
+- `/api/create-checkout` 404 → the Get Unlimited button on the current hosted
+  page did nothing. Nobody on 1.1.0 could buy.
+- `/api/stripe-webhook` 404 → **8 days of failed Stripe deliveries.** Anyone
+  still on 1.0.0 buys through the 291-day-old deployment, which still works, so
+  those purchases took money and wrote no license row. See item 1 below.
+
+What made it invisible: the confirmation was "the route I deleted returns
+Vercel's `NOT_FOUND` instead of the handler's JSON". That HTML 404 was every
+route, not one file. Verifying an absence proves nothing, because a broken
+deploy looks exactly like a successful deletion. Twice now on this project the
+same mistake in different clothes — the first was reading a set
+`STRIPE_WEBHOOK_SECRET` as proof a webhook destination existed.
+
+Fixed:
+
+- Redeployed from `backend/`. Five λ present, `GM-AFD2-…` returns
+  `200 {"valid":true}`, preflight 200, `upgrade.html` is the `page.css` copy.
+- Root `.vercel/` and the stale root `public/` are gone, so a `vercel --prod`
+  from the repo root can no longer link and clobber production.
+- `npm run deploy:backend` now deploys from `backend/` and then runs
+  `backend/scripts/verify-deploy.js`, which asserts all five routes answer,
+  that `validate-license` returns real JSON, and that the served pages are the
+  current ones. It exits non-zero otherwise. Deploy through that script.
+
+### The bug the outage exposed — shipped as 1.1.1
+
+`validateLicenseKey` treated any non-5xx failure as `invalid`. A routing 404 is
+non-5xx, so during the outage the validator's absence read as "this key is
+fake" — and `revalidateStoredLicense` revokes premium on `invalid`. The one
+property the grace path rests on, that only the database can take premium away,
+was defeated by a misdeploy.
+
+Now the only response that means "not a real key" is a 200 from our own handler
+carrying `valid: false`. Everything else — 404, 405, 429, 5xx, an HTML error
+page, an unparseable body — is `unreachable` and changes nothing.
+`recoverLicense` had the same shape: a routing 404 told people their purchase
+did not exist. It now trusts a status code only once the body parses as JSON.
+
+Blast radius was small: only a key with `licenseVerified: true` can be revoked,
+and the only ones that existed were made during the 54 minutes between the
+webhook going live and the bad deploy. Anyone affected still has recovery.
+
 ## Remaining — needs you
 
-1. ~~Remove the temporary backfill endpoint and its secret.~~ Done. The route
-   now returns Vercel's own `NOT_FOUND` rather than the handler's
-   `{"error":"Not found"}`, which is what distinguishes "file is gone" from
-   "handler rejected the secret". `ADMIN_SECRET` removed from Production.
+1. **Replay the failed Stripe webhooks from the outage window.** Workbench →
+   the `gmail-autoexpander` destination → failed deliveries since 2026-08-26
+   16:12 CEST → resend each `checkout.session.completed`. They are under 30
+   days old, so they carry full payloads rather than "Limited data" stubs, and
+   `ON CONFLICT (stripe_session_id)` makes resending safe. Cross-check against
+   Payments over the same window: any paid session with no `licenses` row is
+   someone who paid and got nothing.
 
-2. ~~Create the webhook destination.~~ Done and verified — see task 4 above.
+2. ~~Remove the temporary backfill endpoint and its secret.~~ Done, but note
+   how it was confirmed was wrong — see the outage above. `ADMIN_SECRET` is
+   removed from Production and the file is deleted; both are still true.
+
+3. ~~Create the webhook destination.~~ Done and verified — see task 4 above.
 
    Note for next time: Stripe removed "Send test event" from live-mode
    destinations in the new Workbench; it is sandbox-only. The substitutes are
@@ -137,15 +207,15 @@ up by purchase email. That is the designed path, and it now has data behind it.
    has to hold before refunding the duplicate charges in step 3 — those
    customers have other active keys on the same address.
 
-3. Decide on refunds for the five duplicate charges, and issue `raisulfpc@…` a
+4. Decide on refunds for the five duplicate charges, and issue `raisulfpc@…` a
    key at their real address with `scripts/issue-license.js`.
 
-   Order matters, and only after step 2: with no webhook, a refund currently
+   Order matters, and only after step 3: with no webhook, a refund currently
    revokes nothing. Once the destination exists, refunding kills the key tied
    to that session — so refund first, re-run `validate-license` on the key you
    intend to send, and only then email it.
 
-4. ~~Ship `dist/` to the Chrome Web Store.~~ Submitted 2026-08-26 as
+5. ~~Ship `dist/` to the Chrome Web Store.~~ Submitted 2026-08-26 as
    `gmail-unlimited-v1.1.0.zip`, after loading `dist/` unpacked and confirming
    the grace path: a stored key that no longer exists left premium on and
    raised the "Confirm your license" band rather than downgrading.

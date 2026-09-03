@@ -19,11 +19,32 @@ export type RecoveryResult =
   | { status: 'unreachable' };
 
 /**
+ * Did this response actually come from our handler, or from something in
+ * front of it?
+ *
+ * A misrouted deploy answers with Vercel's own HTML 404, a proxy or captive
+ * portal answers with a login page, an outage answers with a gateway error
+ * page. None of those are the validator saying no, and the difference decides
+ * whether a paying customer keeps what they bought. Our handlers always answer
+ * in JSON, so a body that will not parse means we never reached one.
+ */
+async function readJson(response: Response): Promise<any | null> {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Ask the backend whether a key is real and still active.
  *
- * 'unreachable' is kept distinct from 'invalid' on purpose: a customer who is
- * offline, or who hits a backend outage, must not silently lose premium they
- * paid for. Callers decide how to treat it.
+ * Exactly one response means "this key is not valid": a 200 from our handler
+ * carrying valid:false. Every other outcome — offline, 404, 405, 429, 5xx,
+ * an HTML error page — is 'unreachable', because revalidateStoredLicense
+ * revokes premium on 'invalid' and nothing but the database should be able to
+ * do that. A misrouted deploy on 2026-08-26 returned 404 here, which the old
+ * `status < 500 ? invalid` rule read as a fake key.
  */
 export async function validateLicenseKey(
   licenseKey: string
@@ -35,15 +56,14 @@ export async function validateLicenseKey(
       body: JSON.stringify({ licenseKey }),
     });
 
-    if (!response.ok) {
-      // 5xx means the validator itself is broken, not that the key is fake.
-      return response.status >= 500
-        ? { status: 'unreachable' }
-        : { status: 'invalid' };
+    const data = await readJson(response);
+
+    if (response.status !== 200 || typeof data?.valid !== 'boolean') {
+      console.error('[License] Validator did not answer:', response.status);
+      return { status: 'unreachable' };
     }
 
-    const data = await response.json();
-    return data.valid === true ? { status: 'valid' } : { status: 'invalid' };
+    return data.valid ? { status: 'valid' } : { status: 'invalid' };
   } catch (error) {
     console.error('[License] Validation request failed:', error);
     return { status: 'unreachable' };
@@ -56,6 +76,9 @@ export async function validateLicenseKey(
  * This is the escape hatch for customers who bought before licenses were
  * stored: the key sitting in their browser is not the key the backfill
  * recorded, so validation will reject it and only a lookup can reunite them.
+ *
+ * The status codes are only trusted once the body proves our handler produced
+ * them — otherwise a routing 404 tells someone their purchase does not exist.
  */
 export async function recoverLicense(email: string): Promise<RecoveryResult> {
   try {
@@ -65,6 +88,13 @@ export async function recoverLicense(email: string): Promise<RecoveryResult> {
       body: JSON.stringify({ email }),
     });
 
+    const data = await readJson(response);
+
+    if (data === null) {
+      console.error('[License] Recovery did not answer:', response.status);
+      return { status: 'unreachable' };
+    }
+
     if (response.status === 429) {
       return { status: 'rate-limited' };
     }
@@ -73,11 +103,10 @@ export async function recoverLicense(email: string): Promise<RecoveryResult> {
       return { status: 'not-found' };
     }
 
-    if (!response.ok) {
+    if (response.status !== 200) {
       return { status: 'unreachable' };
     }
 
-    const data = await response.json();
     const keys: string[] = Array.isArray(data.licenseKeys) ? data.licenseKeys : [];
 
     return keys.length > 0
