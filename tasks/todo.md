@@ -193,31 +193,35 @@ The row that mattered is the first one, which used to return `invalid`.
 
 ## Remaining — needs you
 
-1. **Re-run the backfill to recover the purchases the dead webhook dropped.**
+1. ~~Recover the purchases the dead webhook dropped.~~ **Nothing was dropped.**
 
-       cd backend
-       set -a && . ./.env.local && set +a
-       node scripts/backfill-licenses.js            # dry run, names every gap
-       node scripts/backfill-licenses.js --apply
+   Checked against Stripe on 2026-09-03: 73 sessions, 20 paid, **zero of them
+   created after 2026-08-26 14:12 UTC** — the moment the backend went 404. The
+   arithmetic corroborates it: the backfill saw 72 sessions and 19 paid, and
+   the single addition since is the EUR 2.99 test purchase at 15:27 CEST, 45
+   minutes *before* the outage began and already written by the webhook.
 
-   This is better than replaying webhooks from Workbench, which was the first
-   instinct. The backfill walks every paid checkout session Stripe has ever
-   recorded and routes each through the same `issueLicenseForSession` the
-   webhook uses, idempotent on `stripe_session_id`. It does not care whether a
-   delivery failed, was never retried, or whether Stripe disabled the
-   destination — it reads the source of truth directly. Sessions that already
-   have a row come back as skipped.
+   Nobody could buy through the current hosted page once `create-checkout`
+   started 404ing, and nobody on 1.0.0 happened to buy through the old
+   deployment in those eight days. The outage cost reputation and eight days of
+   sales, not data.
 
-   **Do this before issuing any refunds.** The backfill mints an active key
-   for any paid session lacking one, including a session that was refunded
-   while the webhook was down — so refund first and you hand the key straight
-   back.
+   If a gap ever does open, the fix is `scripts/backfill-licenses.js`
+   (dry-run by default, `--apply` to write) rather than replaying deliveries
+   from Workbench. It reads Stripe directly and is idempotent on
+   `stripe_session_id`, so it does not care whether a delivery failed, stopped
+   retrying, or whether the destination was disabled. It needs `DATABASE_URL`,
+   which is **not** in `backend/.env.local` — that file has only
+   `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID` and `VERCEL_OIDC_TOKEN` — and is
+   Sensitive in Vercel, so it cannot be pulled. Get it from the Neon dashboard
+   when the moment comes, ideally as the least-privilege role in
+   `backend/LICENSING.md` rather than `neondb_owner`.
 
-   Separately, check the `gmail-autoexpander` destination is still **Enabled**
-   in Workbench. Stripe auto-disables a live endpoint after sustained total
-   failure, and eight days of 404 is well inside that threshold. The backfill
-   fixes the backlog either way, but a disabled destination means every
-   *future* purchase drops too.
+   Still worth doing: confirm the `gmail-autoexpander` destination is
+   **Enabled** in Workbench. Stripe auto-disables a live endpoint after
+   sustained total failure, and eight days of 404 is well inside that
+   threshold. Nothing was lost in the past, but a disabled destination drops
+   every future purchase.
 
 2. ~~Remove the temporary backfill endpoint and its secret.~~ Done, but note
    how it was confirmed was wrong — see the outage above. `ADMIN_SECRET` is
