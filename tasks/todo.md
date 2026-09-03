@@ -193,24 +193,31 @@ The row that mattered is the first one, which used to return `invalid`.
 
 ## Remaining — needs you
 
-1. **Replay the failed Stripe webhooks from the outage window.**
+1. **Re-run the backfill to recover the purchases the dead webhook dropped.**
 
-   **Check the destination is still Enabled first.** Stripe auto-disables a
-   live endpoint after sustained total failure — it emails warnings, then
-   turns it off, and eight days of 404 is well inside that. If it is disabled,
-   every resend is a silent no-op and the replay will look complete while
-   nothing lands in the database. Re-enable before resending anything.
+       cd backend
+       set -a && . ./.env.local && set +a
+       node scripts/backfill-licenses.js            # dry run, names every gap
+       node scripts/backfill-licenses.js --apply
 
-   Then: Workbench → the `gmail-autoexpander` destination → failed deliveries
-   since 2026-08-26 16:12 CEST → resend each `checkout.session.completed`.
-   They are under 30 days old, so they carry full payloads rather than
-   "Limited data" stubs, and `ON CONFLICT (stripe_session_id)` makes resending
-   safe. Automatic retries stop after about three days, so anything from
-   Aug 26–31 is terminal and only a manual resend recovers it; the last couple
-   of days may still be retrying and will land on their own now.
+   This is better than replaying webhooks from Workbench, which was the first
+   instinct. The backfill walks every paid checkout session Stripe has ever
+   recorded and routes each through the same `issueLicenseForSession` the
+   webhook uses, idempotent on `stripe_session_id`. It does not care whether a
+   delivery failed, was never retried, or whether Stripe disabled the
+   destination — it reads the source of truth directly. Sessions that already
+   have a row come back as skipped.
 
-   Finally, cross-check against Payments over the same window: any paid
-   session with no `licenses` row is someone who paid and got nothing.
+   **Do this before issuing any refunds.** The backfill mints an active key
+   for any paid session lacking one, including a session that was refunded
+   while the webhook was down — so refund first and you hand the key straight
+   back.
+
+   Separately, check the `gmail-autoexpander` destination is still **Enabled**
+   in Workbench. Stripe auto-disables a live endpoint after sustained total
+   failure, and eight days of 404 is well inside that threshold. The backfill
+   fixes the backlog either way, but a disabled destination means every
+   *future* purchase drops too.
 
 2. ~~Remove the temporary backfill endpoint and its secret.~~ Done, but note
    how it was confirmed was wrong — see the outage above. `ADMIN_SECRET` is
