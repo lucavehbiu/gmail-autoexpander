@@ -178,15 +178,39 @@ Blast radius was small: only a key with `licenseVerified: true` can be revoked,
 and the only ones that existed were made during the 54 minutes between the
 webhook going live and the bad deploy. Anyone affected still has recovery.
 
+Verified by driving both functions against a stubbed `fetch`:
+
+| Response | `validateLicenseKey` | `recoverLicense` |
+|---|---|---|
+| 404, HTML (the outage) | `unreachable` | `unreachable` |
+| 500, our JSON | `unreachable` | — |
+| 200 `{"valid":false}` | `invalid` | — |
+| 200 `{"valid":true}` | `valid` | — |
+| 404, our JSON | — | `not-found` |
+| 429, our JSON | — | `rate-limited` |
+
+The row that mattered is the first one, which used to return `invalid`.
+
 ## Remaining — needs you
 
-1. **Replay the failed Stripe webhooks from the outage window.** Workbench →
-   the `gmail-autoexpander` destination → failed deliveries since 2026-08-26
-   16:12 CEST → resend each `checkout.session.completed`. They are under 30
-   days old, so they carry full payloads rather than "Limited data" stubs, and
-   `ON CONFLICT (stripe_session_id)` makes resending safe. Cross-check against
-   Payments over the same window: any paid session with no `licenses` row is
-   someone who paid and got nothing.
+1. **Replay the failed Stripe webhooks from the outage window.**
+
+   **Check the destination is still Enabled first.** Stripe auto-disables a
+   live endpoint after sustained total failure — it emails warnings, then
+   turns it off, and eight days of 404 is well inside that. If it is disabled,
+   every resend is a silent no-op and the replay will look complete while
+   nothing lands in the database. Re-enable before resending anything.
+
+   Then: Workbench → the `gmail-autoexpander` destination → failed deliveries
+   since 2026-08-26 16:12 CEST → resend each `checkout.session.completed`.
+   They are under 30 days old, so they carry full payloads rather than
+   "Limited data" stubs, and `ON CONFLICT (stripe_session_id)` makes resending
+   safe. Automatic retries stop after about three days, so anything from
+   Aug 26–31 is terminal and only a manual resend recovers it; the last couple
+   of days may still be retrying and will land on their own now.
+
+   Finally, cross-check against Payments over the same window: any paid
+   session with no `licenses` row is someone who paid and got nothing.
 
 2. ~~Remove the temporary backfill endpoint and its secret.~~ Done, but note
    how it was confirmed was wrong — see the outage above. `ADMIN_SECRET` is
